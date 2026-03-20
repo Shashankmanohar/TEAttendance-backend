@@ -33,7 +33,7 @@ app.use('/api/upload', require('./routes/upload'));
 
 // Basic Route
 app.get('/', (req, res) => {
-  res.send('Attendance System API is running');
+  res.send('Attendance System API is running (v2)');
 });
 
 // Health check route
