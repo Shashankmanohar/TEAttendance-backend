@@ -21,9 +21,36 @@ app.use((req, res, next) => {
 });
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected successfully'))
-  .catch(err => console.error('MongoDB connection error:', err));
+let cachedDb = null;
+const connectDB = async () => {
+  if (cachedDb) return cachedDb;
+  
+  try {
+    console.log('Connecting to MongoDB Atlas...');
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+    });
+    cachedDb = conn;
+    console.log('MongoDB connected successfully');
+    return conn;
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    throw err;
+  }
+};
+
+// Middleware to ensure DB connection is ready
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(500).json({ 
+      message: 'Database Connection Error', 
+      error: err.message 
+    });
+  }
+});
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
