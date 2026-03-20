@@ -9,23 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-const allowedOrigins = [
-  'https://te-attendance-frontend.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:3000'
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
-}));
+app.use(cors()); // Temporarily allow all origins to isolate CORS issues
 app.use(express.json());
 
 // Logger
@@ -50,6 +34,22 @@ app.use('/api/upload', require('./routes/upload'));
 // Basic Route
 app.get('/', (req, res) => {
   res.send('Attendance System API is running');
+});
+
+// Health check route
+app.get('/health', (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
+  res.json({ status: 'OK', database: dbStatus });
+});
+
+// Error Handling Middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled Error:', err);
+  res.status(500).json({ 
+    message: 'Internal Server Error', 
+    error: err.message,
+    stack: process.env.NODE_ENV === 'production' ? null : err.stack 
+  });
 });
 
 // Start Server
