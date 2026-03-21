@@ -15,7 +15,7 @@ app.use(express.json());
 // Logger
 app.use((req, res, next) => {
   res.on('finish', () => {
-    console.log(`${req.method} ${req.url} ${res.statusCode}`);
+    console.log(`${req.method} ${req.originalUrl} ${res.statusCode}`);
   });
   next();
 });

@@ -4,8 +4,8 @@ const attendanceController = require('../controllers/attendanceController');
 const auth = require('../middleware/auth');
 
 router.post('/clock-in', attendanceController.clockIn);
-router.get('/history', attendanceController.getAttendanceHistory);
-router.get('/latest', attendanceController.getLatestAttendance);
+router.get('/history', auth, attendanceController.getAttendanceHistory);
+router.get('/latest', auth, attendanceController.getLatestAttendance);
 router.get('/check-status/:rollNumber', attendanceController.checkStatusByRollNumber);
 
 module.exports = router;
