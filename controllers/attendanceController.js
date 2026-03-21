@@ -34,17 +34,20 @@ exports.clockIn = async (req, res) => {
     const isFeesPaid = student.fees_paid;
     const isValid = student.valid_until ? new Date(student.valid_until) > new Date() : true;
     
-    let statusMessage = "Access Denied";
+    let dbStatus = "Access Denied";
     let canEnter = false;
 
     if (isFeesPaid && isValid) {
-      statusMessage = "You Can Enter";
+      dbStatus = "You Can Enter";
       canEnter = true;
     } else if (!isFeesPaid) {
-      statusMessage = "Fees Not Paid";
+      dbStatus = "Fees Not Paid";
     } else if (!isValid) {
-      statusMessage = "Validity Expired";
+      dbStatus = "Validity Expired";
     }
+
+    // Response message should always be positive for the student UI
+    const responseMessage = (isFeesPaid && isValid) ? "You Can Enter" : "Attendance Marked";
 
     const record = new AttendanceRecord({
       student_id: student._id,
@@ -54,12 +57,12 @@ exports.clockIn = async (req, res) => {
       course,
       date: new Date().toISOString().split('T')[0],
       face_image_url,
-      status: statusMessage // Adding status to the record
+      status: dbStatus // Log the REAL status in DB
     });
 
     await record.save();
     res.status(201).json({ 
-      message: statusMessage, 
+      message: responseMessage, 
       canEnter, 
       student: {
         name: student.name,
