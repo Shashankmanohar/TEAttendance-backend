@@ -6,14 +6,21 @@ exports.clockIn = async (req, res) => {
     console.log('Attendance mark request:', JSON.stringify(req.body, null, 2));
     const { roll_number, class_id, course, face_image_url } = req.body;
     const student = await Student.findOne({ roll_number });
-    if (!student) return res.status(404).json({ message: 'Student not found' });
+    if (!student) {
+      console.log('Student not found for roll_number:', roll_number);
+      return res.status(404).json({ message: 'Student not found' });
+    }
     
     // Check if duplicate for today
     const today = new Date().toISOString().split('T')[0];
+    console.log(`Checking attendance for student ${student.name} on ${today}`);
+    
     const existing = await AttendanceRecord.findOne({ student_id: student._id, date: today });
     if (existing) {
+      console.log('Duplicate attendance detected for today');
       return res.status(400).json({ 
         message: 'Attendance Already Marked for Today',
+        alreadyMarked: true,
         student: {
           name: student.name,
           roll_number: student.roll_number,
@@ -21,6 +28,7 @@ exports.clockIn = async (req, res) => {
         }
       });
     }
+    console.log('No existing record found, proceeding...');
 
     // Check fee status and validity
     const isFeesPaid = student.fees_paid;
