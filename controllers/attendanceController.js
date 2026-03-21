@@ -7,6 +7,20 @@ exports.clockIn = async (req, res) => {
     const { roll_number, class_id, course, face_image_url } = req.body;
     const student = await Student.findOne({ roll_number });
     if (!student) return res.status(404).json({ message: 'Student not found' });
+    
+    // Check if duplicate for today
+    const today = new Date().toISOString().split('T')[0];
+    const existing = await AttendanceRecord.findOne({ student_id: student._id, date: today });
+    if (existing) {
+      return res.status(400).json({ 
+        message: 'Attendance Already Marked for Today',
+        student: {
+          name: student.name,
+          roll_number: student.roll_number,
+          photo_url: student.photo_url
+        }
+      });
+    }
 
     // Check fee status and validity
     const isFeesPaid = student.fees_paid;
@@ -56,6 +70,48 @@ exports.getAttendanceHistory = async (req, res) => {
   try {
     const history = await AttendanceRecord.find().sort({ timestamp: -1 });
     res.json(history);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+exports.checkStatusByRollNumber = async (req, res) => {
+  try {
+    const { rollNumber } = req.params;
+    const student = await Student.findOne({ roll_number: rollNumber });
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    const today = new Date().toISOString().split('T')[0];
+    const record = await AttendanceRecord.findOne({ student_id: student._id, date: today });
+
+    res.json({
+      isMarked: !!record,
+      message: record ? 'Attendance Marked' : 'Attendance Not Marked Yet',
+      timestamp: record ? record.timestamp : null,
+      student: {
+        name: student.name,
+        roll_number: student.roll_number,
+        photo_url: student.photo_url,
+        course: student.course,
+        class_id: student.class_id
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+exports.getLatestAttendance = async (req, res) => {
+  try {
+    const latest = await AttendanceRecord.findOne().sort({ timestamp: -1 });
+    if (!latest) return res.status(404).json({ message: 'No records found' });
+
+    const student = await Student.findById(latest.student_id);
+
+    res.json({
+      ...latest._doc,
+      student_photo: student ? student.photo_url : null
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
