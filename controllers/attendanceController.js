@@ -112,7 +112,7 @@ exports.checkStatusByRollNumber = async (req, res) => {
 exports.getLatestAttendance = async (req, res) => {
   try {
     const latest = await AttendanceRecord.findOne().sort({ timestamp: -1 });
-    if (!latest) return res.status(404).json({ message: 'No records found' });
+    if (!latest) return res.status(200).json(null);
 
     const student = await Student.findById(latest.student_id);
 
