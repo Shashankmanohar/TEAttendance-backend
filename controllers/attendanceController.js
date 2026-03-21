@@ -18,7 +18,7 @@ exports.clockIn = async (req, res) => {
     const existing = await AttendanceRecord.findOne({ student_id: student._id, date: today });
     if (existing) {
       console.log('Duplicate attendance detected for today');
-      return res.status(400).json({ 
+      return res.status(200).json({ 
         message: 'Attendance Already Marked for Today',
         alreadyMarked: true,
         student: {
