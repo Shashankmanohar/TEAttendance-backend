@@ -5,9 +5,15 @@ const StaffAttendance = require('../models/StaffAttendance');
 
 exports.clockIn = async (req, res) => {
   try {
-    console.log('Attendance mark request:', JSON.stringify(req.body, null, 2));
+    console.log('--- Clock-in Request Start ---');
+    console.log('Body:', JSON.stringify(req.body, null, 2));
     const { roll_number, staff_id, class_id, course, face_image_url } = req.body;
     const today = new Date().toISOString().split('T')[0];
+
+    if (!roll_number && !staff_id) {
+      console.error('Invalid request: Missing roll_number and staff_id');
+      return res.status(400).json({ message: 'Missing roll_number or staff_id' });
+    }
     
     // 1. Staff Logic
     if (staff_id || (roll_number && roll_number.startsWith('STF-'))) {

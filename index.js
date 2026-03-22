@@ -12,10 +12,27 @@ const PORT = process.env.PORT || 5000;
 app.use(cors()); // Temporarily allow all origins to isolate CORS issues
 app.use(express.json());
 
+// Catch JSON parsing errors
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    console.error('Bad JSON request body:', err);
+    return res.status(400).json({ message: 'Invalid JSON payload' });
+  }
+  next();
+});
+
 // Logger
+const fs = require('fs');
+const path = require('path');
+const logFile = path.join(__dirname, 'server.log');
+
 app.use((req, res, next) => {
+  const start = Date.now();
   res.on('finish', () => {
-    console.log(`${req.method} ${req.originalUrl} ${res.statusCode}`);
+    const duration = Date.now() - start;
+    const logLine = `${new Date().toISOString()} | ${req.method} ${req.originalUrl} ${res.statusCode} | ${duration}ms\n`;
+    fs.appendFileSync(logFile, logLine);
+    console.log(logLine);
   });
   next();
 });
