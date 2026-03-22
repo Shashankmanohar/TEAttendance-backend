@@ -16,4 +16,9 @@ const attendanceRecordSchema = new mongoose.Schema({
   email_sent_at: { type: Date },
 });
 
+// Indexes for performance
+attendanceRecordSchema.index({ student_id: 1, date: 1 });
+attendanceRecordSchema.index({ roll_number: 1, date: 1 });
+attendanceRecordSchema.index({ timestamp: -1 });
+
 module.exports = mongoose.model('AttendanceRecord', attendanceRecordSchema);

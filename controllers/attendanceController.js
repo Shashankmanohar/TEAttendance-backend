@@ -56,15 +56,17 @@ exports.clockIn = async (req, res) => {
       }
     }
 
-    // 2. Student Logic
-    const student = await Student.findOne({ roll_number });
+    // 2. Student & Attendance Logic (Parallelized for Speed)
+    const [student, existingRecord] = await Promise.all([
+      Student.findOne({ roll_number }).lean(),
+      AttendanceRecord.findOne({ roll_number, date: today }).lean()
+    ]);
+
     if (!student) {
       console.log('Student not found for roll_number:', roll_number);
       return res.status(404).json({ message: 'Student not found' });
     }
     
-    const existingRecord = await AttendanceRecord.findOne({ student_id: student._id, date: today });
-
     if (existingRecord) {
       return res.status(200).json({
         message: 'Attendance Already Completed for Today',
