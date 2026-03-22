@@ -8,6 +8,8 @@ const attendanceRecordSchema = new mongoose.Schema({
   course: { type: String, required: true },
   date: { type: String, required: true }, // Format: YYYY-MM-DD
   timestamp: { type: Date, default: Date.now },
+  checkIn: { type: Date },
+  checkOut: { type: Date },
   face_image_url: { type: String }, // Optional: only if provided
   status: { type: String }, // e.g., "You Can Enter", "Fees Not Paid", "Validity Expired"
   email_sent: { type: Boolean, default: false },

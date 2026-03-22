@@ -1,25 +1,67 @@
 const AttendanceRecord = require('../models/AttendanceRecord');
 const Student = require('../models/Student');
+const User = require('../models/User');
+const StaffAttendance = require('../models/StaffAttendance');
 
 exports.clockIn = async (req, res) => {
   try {
     console.log('Attendance mark request:', JSON.stringify(req.body, null, 2));
-    const { roll_number, class_id, course, face_image_url } = req.body;
+    const { roll_number, staff_id, class_id, course, face_image_url } = req.body;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 1. Staff Logic
+    if (staff_id || (roll_number && roll_number.startsWith('STF-'))) {
+      const searchId = staff_id || roll_number;
+      const staffMember = await User.findOne({ staff_id: searchId, role: 'staff' });
+      
+      if (staffMember) {
+        const existingAttendance = await StaffAttendance.findOne({ staffId: staffMember._id, date: today });
+        
+        if (existingAttendance) {
+          return res.status(200).json({
+            message: 'Attendance Already Completed for Today',
+            alreadyMarked: true,
+            student: { 
+              name: staffMember.name,
+              roll_number: staffMember.staff_id,
+              photo_url: staffMember.photo_url
+            }
+          });
+        }
+
+        const newAttendance = new StaffAttendance({
+          staffId: staffMember._id,
+          date: today,
+          checkIn: new Date(),
+          status: 'Present'
+        });
+
+        await newAttendance.save();
+        return res.status(201).json({
+          message: 'Welcome! Attendance Marked',
+          canEnter: true,
+          student: {
+            name: staffMember.name,
+            roll_number: staffMember.staff_id,
+            photo_url: staffMember.photo_url
+          },
+          record: { ...newAttendance._doc, student_name: staffMember.name, type: 'staff' }
+        });
+      }
+    }
+
+    // 2. Student Logic
     const student = await Student.findOne({ roll_number });
     if (!student) {
       console.log('Student not found for roll_number:', roll_number);
       return res.status(404).json({ message: 'Student not found' });
     }
     
-    // Check if duplicate for today
-    const today = new Date().toISOString().split('T')[0];
-    console.log(`Checking attendance for student ${student.name} on ${today}`);
-    
-    const existing = await AttendanceRecord.findOne({ student_id: student._id, date: today });
-    if (existing) {
-      console.log('Duplicate attendance detected for today');
-      return res.status(200).json({ 
-        message: 'Attendance Already Marked for Today',
+    const existingRecord = await AttendanceRecord.findOne({ student_id: student._id, date: today });
+
+    if (existingRecord) {
+      return res.status(200).json({
+        message: 'Attendance Already Completed for Today',
         alreadyMarked: true,
         student: {
           name: student.name,
@@ -28,12 +70,10 @@ exports.clockIn = async (req, res) => {
         }
       });
     }
-    console.log('No existing record found, proceeding...');
 
-    // Check fee status and validity
-    const isFeesPaid = student.fees_paid;
-    const isValid = student.valid_until ? new Date(student.valid_until) > new Date() : true;
-    
+    // New Scan
+    let isFeesPaid = student.fees_paid;
+    let isValid = student.valid_until ? new Date(student.valid_until) > new Date() : true;
     let dbStatus = "Access Denied";
     let canEnter = false;
 
@@ -46,41 +86,70 @@ exports.clockIn = async (req, res) => {
       dbStatus = "Validity Expired";
     }
 
-    // Response message should always be positive for the student UI
-    const responseMessage = (isFeesPaid && isValid) ? "You Can Enter" : "Attendance Marked";
-
-    const record = new AttendanceRecord({
+    const newRecord = new AttendanceRecord({
       student_id: student._id,
       student_name: student.name,
       roll_number: student.roll_number,
-      class_id,
-      course,
-      date: new Date().toISOString().split('T')[0],
+      class_id: class_id || student.class_id || 'default',
+      course: course || student.course || '',
+      date: today,
+      checkIn: new Date(),
       face_image_url,
-      status: dbStatus // Log the REAL status in DB
+      status: dbStatus
     });
 
-    await record.save();
+    await newRecord.save();
+
     res.status(201).json({ 
-      message: responseMessage, 
-      canEnter, 
+      message: (isFeesPaid && isValid) ? "Welcome! You Can Enter" : "Welcome! Attendance Marked", 
+      canEnter: canEnter,
       student: {
         name: student.name,
         roll_number: student.roll_number,
         photo_url: student.photo_url,
         valid_until: student.valid_until
       },
-      record 
+      record: newRecord 
     });
   } catch (err) {
+    console.error('Clock-in error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
 exports.getAttendanceHistory = async (req, res) => {
   try {
-    const history = await AttendanceRecord.find().sort({ timestamp: -1 });
-    res.json(history);
+    let query = {};
+    
+    // If user is a student, only show their records
+    if (req.user && req.user.role === 'student') {
+      const student = await Student.findOne({ email: req.user.email });
+      if (student) {
+        query.student_id = student._id;
+      } else {
+        // If student not found by email, return empty array
+        return res.json([]);
+      }
+    }
+    
+    const history = await AttendanceRecord.find(query).sort({ timestamp: -1 });
+    
+    // If student, calculate monthly count
+    let monthlyCount = 0;
+    if (req.user && req.user.role === 'student') {
+       const now = new Date();
+       const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+       monthlyCount = await AttendanceRecord.countDocuments({
+         ...query,
+         date: { $regex: `^${currentMonthPrefix}` },
+         status: "You Can Enter"
+       });
+    }
+
+    res.json({
+      history,
+      monthlyPresenceCount: monthlyCount
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

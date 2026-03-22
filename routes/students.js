@@ -8,5 +8,6 @@ router.get('/', auth, studentController.getStudents);
 router.put('/:id', auth, studentController.updateStudent);
 router.patch('/:id/toggle-fees', auth, studentController.toggleFeeStatus);
 router.delete('/:id', auth, studentController.deleteStudent);
+router.get('/:id/attendance', auth, studentController.getStudentAttendance);
 
 module.exports = router;
